@@ -510,9 +510,11 @@ CGPoint RectCenter(CGRect rect) {
         [self validateButtons];
         
         CGSize size = [contentView systemLayoutSizeFittingSize:UILayoutFittingCompressedSize];
+#if !__has_feature(attribute_availability_app_extension)
         CGSize limitSize = [[[UIApplication sharedApplication] keyWindow] frame].size;
         size.width = MIN(size.width, limitSize.width);
         size.height = MIN(size.height, limitSize.height);
+#endif
         CGRect windowBounds = CGRectMake(0, 0, size.width, size.height);
         
         
