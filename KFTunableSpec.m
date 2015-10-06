@@ -520,7 +520,7 @@ CGPoint RectCenter(CGRect rect) {
         
         UIWindow *window = [[UIWindow alloc] init];
         [window setBounds:windowBounds];
-        [window setCenter:RectCenter([[UIScreen mainScreen] applicationFrame])];
+        [window setCenter:RectCenter([[UIScreen mainScreen] bounds])];
         [window setRootViewController:viewController];
         
         [contentView setTranslatesAutoresizingMaskIntoConstraints:NO];
@@ -641,7 +641,7 @@ CGPoint RectCenter(CGRect rect) {
     [self setInteractionController:interactionController];
     [interactionController setDelegate:self];
     
-    [[self window] setFrame:[[[self window] screen] applicationFrame]];
+    [[self window] setFrame:[[[self window] screen] bounds]];
     [[self window] layoutIfNeeded];
     [interactionController presentOptionsMenuFromRect:[[self shareButton] bounds] inView:[self shareButton] animated:YES];
 }
