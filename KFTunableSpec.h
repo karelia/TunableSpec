@@ -89,8 +89,10 @@ Sample JSON:
 // this property shows/hides the tuning UI
 @property (nonatomic) BOOL controlsAreVisble;
 
+#if TARGET_OS_IPHONE
 // ios convenience - a recognizer that calls -setControlsAreVisible: on triple tap of two fingers. Stick it on a view.
 - (UIGestureRecognizer *)twoFingerTripleTapGestureRecognizer NS_AVAILABLE_IOS(6_0);
+#endif
 
 // mac convenience - install into window menu
 - (void)installMenuWithKeyEquivalent:(NSString *)keyEquivalent modifierMask:(NSUInteger)mask NS_AVAILABLE_MAC(10_7);

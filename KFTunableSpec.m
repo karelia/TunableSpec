@@ -463,17 +463,26 @@ static NSString *CamelCaseToSpaces(NSString *camelCaseString) {
 @end
 #endif
 
-@interface KFTunableSpec () {
-    NSMutableArray *_KFSpecItems;
-    NSMutableArray *_savedDictionaryRepresentations;
-    NSUInteger _currentSaveIndex;
+@interface HitTransparentWindow : UIWindow
+@end
+@implementation HitTransparentWindow
+-(UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *result = [super hitTest:point withEvent:event];
+    if (result == self) {
+        result = nil;
+    }
+    return result;
 }
-@property NSString *name;
-
 @end
 
+
 #if TARGET_OS_IPHONE
-@interface KFTunableSpec () <UIDocumentInteractionControllerDelegate>
+@interface KFTunableSpec () <UIDocumentInteractionControllerDelegate, UIGestureRecognizerDelegate> {
+	NSMutableArray *_KFSpecItems;
+	NSMutableArray *_savedDictionaryRepresentations;
+	NSUInteger _currentSaveIndex;
+}
+@property NSString *name;
 @property UIWindow *window;
 @property UIButton *previousButton;
 @property UIButton *saveButton;
@@ -481,6 +490,8 @@ static NSString *CamelCaseToSpaces(NSString *camelCaseString) {
 @property UIButton *revertButton;
 @property UIButton *shareButton;
 @property UIButton *closeButton;
+@property NSLayoutConstraint *controlsXConstraint;
+@property NSLayoutConstraint *controlsYConstraint;
 
 @property UIDocumentInteractionController *interactionController; // interaction controller doesn't keep itself alive during presentation. lame.
 @end
@@ -602,9 +613,11 @@ static NSMutableDictionary *sSpecsByName;
         [label setText:[[def label] stringByAppendingString:@":"]];
         [label setTextAlignment:NSTextAlignmentRight];
         id views = lastControl ? NSDictionaryOfVariableBindings(label, control, lastControl) : NSDictionaryOfVariableBindings(label, control);
-        [views enumerateKeysAndObjectsUsingBlock:^(id key, id view, BOOL *stop) {
-            [view setTranslatesAutoresizingMaskIntoConstraints:NO];
-            [mainView addSubview:view];
+        [views enumerateKeysAndObjectsUsingBlock:^(NSString *key, id view, BOOL *stop) {
+            if (view != lastControl) { // lastControl is already a subview, and adding it again here can change the z-ordering such that it might obstruct a callout.
+                [view setTranslatesAutoresizingMaskIntoConstraints:NO];
+                [mainView addSubview:view];
+            }
         }];
         [mainView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"|-[label]-[control]-(==20@700,>=20)-|" options:NSLayoutFormatAlignAllCenterY metrics:nil views:views]];
         
@@ -665,7 +678,7 @@ static NSMutableDictionary *sSpecsByName;
 
     // align edge of close button with contentView
     [contentView addConstraint:[NSLayoutConstraint constraintWithItem:closeButton attribute:NSLayoutAttributeLeading relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeLeading multiplier:1 constant:0]];
-    [contentView addConstraint:[NSLayoutConstraint constraintWithItem:closeButton attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeLeading multiplier:1 constant:0]];
+    [contentView addConstraint:[NSLayoutConstraint constraintWithItem:closeButton attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeTop multiplier:1 constant:0]];
 
     UIViewController *viewController = [[UIViewController alloc] init];
     [viewController setView:contentView];
@@ -674,10 +687,6 @@ static NSMutableDictionary *sSpecsByName;
 
 - (BOOL)controlsAreVisible {
     return [self window] != nil;
-}
-
-CGPoint RectCenter(CGRect rect) {
-    return CGPointMake(rect.origin.x + rect.size.width/2, rect.origin.y + rect.size.height/2);
 }
 
 - (void)setControlsAreVisible:(BOOL)flag {
@@ -691,29 +700,28 @@ CGPoint RectCenter(CGRect rect) {
         _currentSaveIndex = [_savedDictionaryRepresentations count];
         [self validateButtons];
         
-        CGSize size = [contentView systemLayoutSizeFittingSize:UILayoutFittingCompressedSize];
-        CGSize limitSize = [[[UIApplication sharedApplication] keyWindow] frame].size;
-        size.width = MIN(size.width, limitSize.width);
-        size.height = MIN(size.height, limitSize.height);
-        CGRect windowBounds = CGRectMake(0, 0, size.width, size.height);
-        
-        
-        UIWindow *window = [[UIWindow alloc] init];
-        [window setBounds:windowBounds];
-        [window setCenter:RectCenter([[UIScreen mainScreen] applicationFrame])];
+        UIWindow *window = [[HitTransparentWindow alloc] init];
+        [window setFrame:[[UIScreen mainScreen] applicationFrame]];
         [window setRootViewController:viewController];
         
         [contentView setTranslatesAutoresizingMaskIntoConstraints:NO];
         [window addSubview:contentView];
         
-        // center contentView with autolayout, because we're going to resize window if we show the interaction controller
+        // center contentView
         id views = NSDictionaryOfVariableBindings(contentView);
-        id metrics = @{@"width" : @(size.width), @"height" : @(size.height)};
-        [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[contentView(width)]" options:0 metrics:metrics views:views]];
-        [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[contentView(height)]" options:0 metrics:metrics views:views]];
-        [window addConstraint:[NSLayoutConstraint constraintWithItem:window attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
-        [window addConstraint:[NSLayoutConstraint constraintWithItem:window attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:contentView attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
+        CGSize limitSize = [[[UIApplication sharedApplication] keyWindow] frame].size;
+        id metrics = @{@"widthLimit" : @(limitSize.width), @"heightLimit" : @(limitSize.height)};
+        [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[contentView(<=widthLimit)]" options:0 metrics:metrics views:views]];
+        [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[contentView(<=heightLimit)]" options:0 metrics:metrics views:views]];
+
+        UIGestureRecognizer *moveWindowReco = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(moveWindowWithReco:)];
+        [contentView addGestureRecognizer:moveWindowReco];
+        [moveWindowReco setDelegate:self];
         
+        [self setControlsXConstraint:[NSLayoutConstraint constraintWithItem:contentView attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:window attribute:NSLayoutAttributeCenterX multiplier:1 constant:0]];
+        [self setControlsYConstraint:[NSLayoutConstraint constraintWithItem:contentView attribute:NSLayoutAttributeCenterY relatedBy:NSLayoutRelationEqual toItem:window attribute:NSLayoutAttributeCenterY multiplier:1 constant:0]];
+        [window addConstraint:[self controlsXConstraint]];
+        [window addConstraint:[self controlsYConstraint]];
         
         [window makeKeyAndVisible];
         [self setWindow:window];
@@ -722,7 +730,38 @@ CGPoint RectCenter(CGRect rect) {
         UIWindow *window = [self window];
         [window setHidden:YES];
         _savedDictionaryRepresentations = nil;
+        [self setControlsXConstraint:nil];
+        [self setControlsYConstraint:nil];
         [self setWindow:nil];
+    }
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    // it's disconcerting when you're going for a slider and move the window instead
+    UIView *hitView = [[gestureRecognizer view] hitTest:[gestureRecognizer locationInView:[gestureRecognizer view]] withEvent:nil];
+    if ([hitView isKindOfClass:[UIControl class]]) {
+        return NO;
+    } else {
+        return YES;
+    }
+}
+
+- (void)moveWindowWithReco:(UIPanGestureRecognizer *)reco {
+    switch (reco.state) {
+        case UIGestureRecognizerStateBegan: {
+            [reco setTranslation:CGPointMake([[self controlsXConstraint] constant], [[self controlsYConstraint] constant]) inView:[self window]];
+            break;
+        }
+        case UIGestureRecognizerStateChanged: {
+            CGPoint trans = [reco translationInView:[self window]];
+            [[self controlsXConstraint] setConstant:trans.x];
+            [[self controlsYConstraint] setConstant:trans.y];
+        }
+        case UIGestureRecognizerStatePossible:
+        case UIGestureRecognizerStateEnded:
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateFailed:
+            break;
     }
 }
 
@@ -942,9 +981,6 @@ CGPoint RectCenter(CGRect rect) {
     UIDocumentInteractionController *interactionController = [UIDocumentInteractionController interactionControllerWithURL:tempFileURL];
     [self setInteractionController:interactionController];
     [interactionController setDelegate:self];
-    
-    [[self window] setFrame:[[[self window] screen] applicationFrame]];
-    [[self window] layoutIfNeeded];
     [interactionController presentOptionsMenuFromRect:[[self shareButton] bounds] inView:[self shareButton] animated:YES];
 }
 
@@ -958,8 +994,6 @@ CGPoint RectCenter(CGRect rect) {
 
 - (void)didFinishShare {
     [self setInteractionController:nil];
-    CGSize contentViewSize = [[[[self window] subviews] lastObject] frame].size;
-    [[self window] setBounds:(CGRect){CGPointZero, contentViewSize}];
 }
 
 - (void)close {
