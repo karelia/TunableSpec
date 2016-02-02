@@ -690,6 +690,13 @@ static NSMutableDictionary *sSpecsByName;
 }
 
 - (void)setControlsAreVisible:(BOOL)flag {
+	UIApplication *sharedApp = [NSClassFromString(@"UIApplication") performSelector:@selector(sharedApplication) withObject:nil];
+	
+	// Do nothing in extensions
+	if (sharedApp == nil) {
+		return;
+	}
+	
     if (flag && ![self window]) {        
         UIViewController *viewController = [self makeViewController];
         UIView *contentView = [viewController view];
@@ -701,7 +708,7 @@ static NSMutableDictionary *sSpecsByName;
         [self validateButtons];
         
         UIWindow *window = [[HitTransparentWindow alloc] init];
-        [window setFrame:[[UIScreen mainScreen] applicationFrame]];
+        [window setFrame:[[UIScreen mainScreen] bounds]];
         [window setRootViewController:viewController];
         
         [contentView setTranslatesAutoresizingMaskIntoConstraints:NO];
@@ -709,7 +716,7 @@ static NSMutableDictionary *sSpecsByName;
         
         // center contentView
         id views = NSDictionaryOfVariableBindings(contentView);
-        CGSize limitSize = [[[UIApplication sharedApplication] keyWindow] frame].size;
+        CGSize limitSize = [[sharedApp keyWindow] frame].size;
         id metrics = @{@"widthLimit" : @(limitSize.width), @"heightLimit" : @(limitSize.height)};
         [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[contentView(<=widthLimit)]" options:0 metrics:metrics views:views]];
         [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[contentView(<=heightLimit)]" options:0 metrics:metrics views:views]];
@@ -1091,7 +1098,7 @@ static void DrawCloseArtwork(CGContextRef context, CGRect bounds)
     CGFloat components[4];
     
     transform = CGContextGetUserSpaceToDeviceSpaceTransform(context);
-    resolution = sqrtf(fabsf(transform.a * transform.d - transform.b * transform.c)) * 0.5f * (bounds.size.width / imageBounds.size.width + bounds.size.height / imageBounds.size.height);
+    resolution = sqrtf(fabs(transform.a * transform.d - transform.b * transform.c)) * 0.5f * (bounds.size.width / imageBounds.size.width + bounds.size.height / imageBounds.size.height);
     
     CGContextSaveGState(context);
     CGContextClipToRect(context, bounds);
