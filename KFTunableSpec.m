@@ -524,7 +524,7 @@ static NSMutableDictionary *sSpecsByName;
         [self validateButtons];
         
         UIWindow *window = [[HitTransparentWindow alloc] init];
-        [window setFrame:[[UIScreen mainScreen] applicationFrame]];
+        [window setFrame:[[UIScreen mainScreen] bounds]];
         [window setRootViewController:viewController];
         
         [contentView setTranslatesAutoresizingMaskIntoConstraints:NO];
@@ -769,7 +769,7 @@ static void DrawCloseArtwork(CGContextRef context, CGRect bounds)
     CGFloat components[4];
     
     transform = CGContextGetUserSpaceToDeviceSpaceTransform(context);
-    resolution = sqrtf(fabsf(transform.a * transform.d - transform.b * transform.c)) * 0.5f * (bounds.size.width / imageBounds.size.width + bounds.size.height / imageBounds.size.height);
+    resolution = sqrtf(fabs(transform.a * transform.d - transform.b * transform.c)) * 0.5f * (bounds.size.width / imageBounds.size.width + bounds.size.height / imageBounds.size.height);
     
     CGContextSaveGState(context);
     CGContextClipToRect(context, bounds);
