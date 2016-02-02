@@ -513,6 +513,13 @@ static NSMutableDictionary *sSpecsByName;
 }
 
 - (void)setControlsAreVisible:(BOOL)flag {
+	UIApplication *sharedApp = [NSClassFromString(@"UIApplication") performSelector:@selector(sharedApplication) withObject:nil];
+	
+	// Do nothing in extensions
+	if (sharedApp == nil) {
+		return;
+	}
+	
     if (flag && ![self window]) {        
         UIViewController *viewController = [self makeViewController];
         UIView *contentView = [viewController view];
@@ -532,7 +539,7 @@ static NSMutableDictionary *sSpecsByName;
         
         // center contentView
         id views = NSDictionaryOfVariableBindings(contentView);
-        CGSize limitSize = [[[UIApplication sharedApplication] keyWindow] frame].size;
+        CGSize limitSize = [[sharedApp keyWindow] frame].size;
         id metrics = @{@"widthLimit" : @(limitSize.width), @"heightLimit" : @(limitSize.height)};
         [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:[contentView(<=widthLimit)]" options:0 metrics:metrics views:views]];
         [contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:[contentView(<=heightLimit)]" options:0 metrics:metrics views:views]];
